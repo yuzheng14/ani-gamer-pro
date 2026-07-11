@@ -19,6 +19,11 @@ pub static SN_LIST_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join(
 pub static SN_LIST_FILE_PATH: LazyLock<PathBuf> =
     LazyLock::new(|| APP_DIR.join("sn_list.test.toml"));
 
+#[cfg(not(test))]
+pub static DB_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("data.db"));
+#[cfg(test)]
+pub static DB_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("data.test.db"));
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -58,6 +63,17 @@ mod test {
             get_home_dir()?
                 .join(".ani-gamer-pro")
                 .join("sn_list.test.toml")
+        );
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn db_file_path_on_macos() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            DB_FILE_PATH.as_path(),
+            get_home_dir()?.join(".ani-gamer-pro").join("data.test.db")
         );
 
         Ok(())
