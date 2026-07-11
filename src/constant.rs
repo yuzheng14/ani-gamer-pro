@@ -13,6 +13,12 @@ pub static CONFIG_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("
 #[cfg(test)]
 pub static CONFIG_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("config.test.toml"));
 
+#[cfg(not(test))]
+pub static SN_LIST_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("sn_list.toml"));
+#[cfg(test)]
+pub static SN_LIST_FILE_PATH: LazyLock<PathBuf> =
+    LazyLock::new(|| APP_DIR.join("sn_list.test.toml"));
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -39,6 +45,19 @@ mod test {
             get_home_dir()?
                 .join(".ani-gamer-pro")
                 .join("config.test.toml")
+        );
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn sn_list_file_path_on_macos() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            SN_LIST_FILE_PATH.as_path(),
+            get_home_dir()?
+                .join(".ani-gamer-pro")
+                .join("sn_list.test.toml")
         );
 
         Ok(())

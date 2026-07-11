@@ -12,7 +12,19 @@ pub enum ConfigError {
 }
 
 #[derive(Debug, Error)]
+pub enum SnListError {
+    #[error("encounter io error when manipulate sn list file: {0}")]
+    IO(#[from] io::Error),
+    #[error("encounter toml serialize error when writing sn list file: {0}")]
+    TomlSer(#[from] toml::ser::Error),
+    #[error("encounter toml parse error when reading sn list file: {0}")]
+    TomlDe(#[from] toml::de::Error),
+}
+
+#[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] ConfigError),
+    #[error(transparent)]
+    SnListError(#[from] SnListError),
 }

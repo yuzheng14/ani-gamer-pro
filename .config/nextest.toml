@@ -1,6 +1,11 @@
 [test-groups]
 config-file-tests = { max-threads = 1 }
+sn-list-file-tests = { max-threads = 1 }
 
 [[profile.default.overrides]]
 filter = 'test(config::test::)'
 test-group = 'config-file-tests'
+
+[[profile.default.overrides]]
+filter = 'test(sn_list::test::)'
+test-group = 'sn-list-file-tests'
