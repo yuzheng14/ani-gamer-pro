@@ -24,6 +24,11 @@ pub static DB_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("data
 #[cfg(test)]
 pub static DB_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("data.test.db"));
 
+#[cfg(not(test))]
+pub static COOKIE_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("cookie.txt"));
+#[cfg(test)]
+pub static COOKIE_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("cookie.test.txt"));
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -74,6 +79,19 @@ mod test {
         assert_eq!(
             DB_FILE_PATH.as_path(),
             get_home_dir()?.join(".ani-gamer-pro").join("data.test.db")
+        );
+
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn cookie_file_path_on_macos() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            COOKIE_FILE_PATH.as_path(),
+            get_home_dir()?
+                .join(".ani-gamer-pro")
+                .join("cookie.test.txt")
         );
 
         Ok(())
