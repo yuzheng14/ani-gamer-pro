@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use tokio::fs;
+
+use crate::{constant::CONFIG_FILE_PATH, error::ConfigError};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub enum DownloadResolution {
@@ -234,6 +237,28 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    pub async fn read_config() -> Result<Config, ConfigError> {
+        if !fs::try_exists(CONFIG_FILE_PATH.as_path()).await? {
+            Config::default().write_config().await?
+        }
+
+        let contents = fs::read_to_string(CONFIG_FILE_PATH.as_path()).await?;
+
+        Ok(toml::from_str(&contents)?)
+    }
+
+    pub async fn write_config(&self) -> Result<(), ConfigError> {
+        if let Some(parent) = CONFIG_FILE_PATH.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        fs::write(CONFIG_FILE_PATH.as_path(), toml::to_string_pretty(&self)?).await?;
+
+        Ok(())
+    }
+}
+
 // #[derive(Debug, Clone, Serialize, Deserialize)]
 // pub struct Dashboard {
 //     /// 監聽地址, 如果需要允許外部訪問, 請填寫 "0.0.0.0"
@@ -252,14 +277,135 @@ impl Default for Config {
 
 #[cfg(test)]
 mod test {
-    use std::error::Error;
+    use std::{error::Error, sync::Mutex};
 
     use super::*;
 
+    static CONFIG_FILE_LOCK: Mutex<()> = Mutex::new(());
+
+    struct TestConfigFile {
+        _lock: std::sync::MutexGuard<'static, ()>,
+    }
+
+    impl TestConfigFile {
+        fn new() -> Self {
+            let lock = CONFIG_FILE_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            Self::remove_config();
+            if let Some(parent) = CONFIG_FILE_PATH.parent() {
+                std::fs::create_dir_all(parent)
+                    .expect("test config parent directory should be created");
+            }
+
+            Self { _lock: lock }
+        }
+
+        fn remove_config() {
+            let _ = std::fs::remove_file(CONFIG_FILE_PATH.as_path());
+            let _ = std::fs::remove_dir_all(CONFIG_FILE_PATH.as_path());
+        }
+    }
+
+    impl Drop for TestConfigFile {
+        fn drop(&mut self) {
+            Self::remove_config();
+        }
+    }
+
     #[test]
-    fn read_from_config_file() -> Result<(), Box<dyn Error>> {
+    fn empty_toml_uses_config_defaults() -> Result<(), Box<dyn Error>> {
         let config: Config = toml::from_str("")?;
+
         assert_eq!(config, Config::default());
+
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn read_config_creates_missing_file_with_defaults() -> Result<(), Box<dyn Error>> {
+        let _config_file = TestConfigFile::new();
+
+        let config = Config::read_config().await?;
+        let written_config: Config =
+            toml::from_str(&fs::read_to_string(CONFIG_FILE_PATH.as_path()).await?)?;
+
+        assert_eq!(config, Config::default());
+        assert_eq!(written_config, Config::default());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn read_config_reads_existing_file() -> Result<(), Box<dyn Error>> {
+        let _config_file = TestConfigFile::new();
+        let expected = Config {
+            multi_thread: 3,
+            proxy: Some("http://127.0.0.1:8080".to_string()),
+            danmu_ban_words: vec!["spoiler".to_string()],
+            ..Config::default()
+        };
+        fs::write(
+            CONFIG_FILE_PATH.as_path(),
+            toml::to_string_pretty(&expected)?,
+        )
+        .await?;
+
+        let config = Config::read_config().await?;
+
+        assert_eq!(config, expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn write_config_persists_config() -> Result<(), Box<dyn Error>> {
+        let _config_file = TestConfigFile::new();
+        let expected = Config {
+            download_resolution: DownloadResolution::P720,
+            default_download_mode: DownloadMode::All,
+            save_logs: false,
+            ..Config::default()
+        };
+
+        expected.write_config().await?;
+        let written_config: Config =
+            toml::from_str(&fs::read_to_string(CONFIG_FILE_PATH.as_path()).await?)?;
+
+        assert_eq!(written_config, expected);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn read_config_reports_invalid_toml() -> Result<(), Box<dyn Error>> {
+        let _config_file = TestConfigFile::new();
+        fs::write(CONFIG_FILE_PATH.as_path(), "multi-thread = [").await?;
+
+        let error = Config::read_config()
+            .await
+            .expect_err("invalid TOML should fail to parse");
+
+        assert!(matches!(error, ConfigError::TomlDe(_)));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn config_file_operations_report_io_errors() {
+        let _config_file = TestConfigFile::new();
+        std::fs::create_dir(CONFIG_FILE_PATH.as_path())
+            .expect("test config directory should be created");
+
+        let read_error = Config::read_config()
+            .await
+            .expect_err("reading a directory as a config file should fail");
+        let write_error = Config::default()
+            .write_config()
+            .await
+            .expect_err("writing a config to a directory should fail");
+
+        assert!(matches!(read_error, ConfigError::IO(_)));
+        assert!(matches!(write_error, ConfigError::IO(_)));
     }
 }
