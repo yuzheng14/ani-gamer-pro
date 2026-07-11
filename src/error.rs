@@ -22,9 +22,19 @@ pub enum SnListError {
 }
 
 #[derive(Debug, Error)]
+pub enum CookieError {
+    #[error("encounter io error when manipulate cookie file: {0}")]
+    IO(#[from] io::Error),
+    #[error("could not find cookie file")]
+    NotFound,
+}
+
+#[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
     ConfigError(#[from] ConfigError),
     #[error(transparent)]
     SnListError(#[from] SnListError),
+    #[error(transparent)]
+    CookieError(#[from] CookieError),
 }
