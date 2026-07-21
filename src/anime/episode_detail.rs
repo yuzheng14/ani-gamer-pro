@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use tokio::fs;
 
@@ -60,12 +60,13 @@ impl EpisodeDetail {
     }
 
     pub async fn ensure_bangumi_dir(&self) -> Result<(), std::io::Error> {
-        fs::create_dir_all(
-            BANGUMI_DIR_PATH
-                .join(santitize_path_segment(&self.name))
-                .join(santitize_path_segment(&self.season)),
-        )
-        .await
+        fs::create_dir_all(self.bangumi_dir()).await
+    }
+
+    pub fn bangumi_dir(&self) -> PathBuf {
+        BANGUMI_DIR_PATH
+            .join(santitize_path_segment(&self.name))
+            .join(santitize_path_segment(&self.season))
     }
 
     pub fn get_filename(&self, resolution: u64) -> String {
@@ -149,6 +150,7 @@ mod test {
             "劇場版 關於我轉生變成史萊姆這檔事 蒼海之淚篇 [電影]",
             "無職轉生～到了異世界就拿出真本事～第三季 [2]",
             "進擊的巨人 [1] [中文配音]",
+            "Re:Zero/新編集版? [2]",
         ]
     });
 
@@ -159,7 +161,7 @@ mod test {
                 .iter()
                 .map(|t| EpisodeDetail::get_episode(t).unwrap())
                 .collect::<Vec<String>>(),
-            vec!["1", "電影", "2", "1"]
+            vec!["1", "電影", "2", "1", "2"]
         );
 
         Ok(())
@@ -172,7 +174,7 @@ mod test {
                 .iter()
                 .map(|t| EpisodeDetail::get_season(t))
                 .collect::<Vec<Option<String>>>(),
-            vec![None, None, Some(String::from("第三季")), None]
+            vec![None, None, Some(String::from("第三季")), None, None]
         );
 
         Ok(())
@@ -185,7 +187,7 @@ mod test {
                 .iter()
                 .map(|t| EpisodeDetail::get_extra(t))
                 .collect::<Vec<Option<String>>>(),
-            vec![None, None, None, Some(String::from("中文配音"))]
+            vec![None, None, None, Some(String::from("中文配音")), None]
         )
     }
 
@@ -200,7 +202,7 @@ mod test {
                     EpisodeDetail::get_extra(t).as_deref()
                 ))
                 .collect::<Vec<String>>(),
-            vec!["第一季", "電影", "第三季", "第一季 中文配音"]
+            vec!["第一季", "電影", "第三季", "第一季 中文配音", "第一季"]
         )
     }
 
@@ -220,28 +222,47 @@ mod test {
                 "進擊的巨人",
                 "劇場版 關於我轉生變成史萊姆這檔事 蒼海之淚篇",
                 "無職轉生～到了異世界就拿出真本事～",
-                "進擊的巨人"
+                "進擊的巨人",
+                "Re:Zero/新編集版?"
             ]
         );
     }
 
     #[test]
+    fn bangumi_dir() {
+        let expected = [
+            BANGUMI_DIR_PATH.join("進擊的巨人").join("第一季"),
+            BANGUMI_DIR_PATH
+                .join("劇場版 關於我轉生變成史萊姆這檔事 蒼海之淚篇")
+                .join("電影"),
+            BANGUMI_DIR_PATH
+                .join("無職轉生～到了異世界就拿出真本事～")
+                .join("第三季"),
+            BANGUMI_DIR_PATH.join("進擊的巨人").join("第一季 中文配音"),
+            BANGUMI_DIR_PATH.join("Re：Zero／新編集版？").join("第一季"),
+        ];
+
+        for (title, expected) in ANIME_TITLES.iter().zip(expected) {
+            let episode_detail = EpisodeDetail::from_title(title).unwrap();
+
+            assert_eq!(episode_detail.bangumi_dir(), expected);
+        }
+    }
+
+    #[test]
     fn get_filename() {
-        let cases = [
-            ("進擊的巨人 [1]", 1080, "進擊的巨人[1][1080P].mp4"),
+        let expected = [
+            (1080, "進擊的巨人[1][1080P].mp4"),
             (
-                "劇場版 關於我轉生變成史萊姆這檔事 蒼海之淚篇 [電影]",
                 720,
                 "劇場版 關於我轉生變成史萊姆這檔事 蒼海之淚篇[電影][720P].mp4",
             ),
-            (
-                "Re:Zero/新編集版? [2]",
-                540,
-                "Re：Zero／新編集版？[2][540P].mp4",
-            ),
+            (1080, "無職轉生～到了異世界就拿出真本事～[2][1080P].mp4"),
+            (1080, "進擊的巨人[1][1080P].mp4"),
+            (540, "Re：Zero／新編集版？[2][540P].mp4"),
         ];
 
-        for (title, resolution, expected) in cases {
+        for (title, (resolution, expected)) in ANIME_TITLES.iter().zip(expected) {
             let episode_detail = EpisodeDetail::from_title(title).unwrap();
 
             assert_eq!(episode_detail.get_filename(resolution), expected);
