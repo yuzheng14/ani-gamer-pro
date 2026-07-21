@@ -2,7 +2,7 @@ use tokio::fs;
 
 use crate::{constant::COOKIE_FILE_PATH, error::CookieError};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Cookie(pub String);
 
 impl Cookie {

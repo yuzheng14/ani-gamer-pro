@@ -13,6 +13,12 @@ use crate::{
     error::RequestError,
 };
 
+pub(crate) mod anime_video;
+pub(crate) mod common;
+pub(crate) mod device_id;
+pub(crate) mod playlist;
+pub(crate) mod token;
+
 #[derive(Debug)]
 pub struct RequestClient {
     cookie: Client,

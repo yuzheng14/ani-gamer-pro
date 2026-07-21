@@ -12,6 +12,7 @@ use crate::{
     error::AnimeEpisodeError,
     request::RequestClient,
     sn_list::SnDetail,
+    util::get_referer,
 };
 
 static MIN_EPISODE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -31,8 +32,6 @@ pub struct AnimeEpisode {
     request_client: Rc<RequestClient>,
 }
 
-// TODO client 创建与浏览器模拟
-// TODO 标题集数等的正则表达式
 impl AnimeEpisode {
     pub fn new(
         sn: SnDetail,
@@ -58,7 +57,7 @@ impl AnimeEpisode {
         let content = self
             .request_client
             .get(url.clone(), true)
-            .header(REFERER, url)
+            .header(REFERER, get_referer(self.sn_code.parse::<u32>().unwrap()))
             .send()
             .await?
             .error_for_status()?

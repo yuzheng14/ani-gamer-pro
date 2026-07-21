@@ -1,5 +1,11 @@
+use core::error;
+use std::string::FromUtf8Error;
+
+use bytes::Bytes;
 use thiserror::Error;
 use tokio::io;
+
+use crate::{anime::error::AnimeDownloadError, ffmpeg::FFmpegError, request::token::TokenError};
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -46,15 +52,37 @@ pub enum AnimeEpisodeError {
 }
 
 #[derive(Debug, Error)]
+pub enum AnimeBuildError {
+    #[error("build anime error: {0}")]
+    WreqError(#[from] wreq::Error),
+    #[error("{0}")]
+    PlainError(String),
+}
+
+#[derive(Debug, Error)]
+pub enum AnimeError {
+    #[error("encounter error when building anime: {0}")]
+    BuildError(#[from] AnimeBuildError),
+    #[error("encounter error when downloading anime: {0}")]
+    DownloadError(#[from] AnimeDownloadError),
+}
+
+impl From<String> for AnimeBuildError {
+    fn from(value: String) -> Self {
+        Self::PlainError(value)
+    }
+}
+
+#[derive(Debug, Error)]
 pub enum Error {
     #[error(transparent)]
-    ConfigError(#[from] ConfigError),
+    Config(#[from] ConfigError),
     #[error(transparent)]
-    SnListError(#[from] SnListError),
+    SnList(#[from] SnListError),
     #[error(transparent)]
-    CookieError(#[from] CookieError),
+    Cookie(#[from] CookieError),
     #[error(transparent)]
-    RequestError(#[from] RequestError),
+    Request(#[from] RequestError),
     #[error(transparent)]
-    AnimeEpisodeError(#[from] AnimeEpisodeError),
+    AnimeEpisode(#[from] AnimeEpisodeError),
 }

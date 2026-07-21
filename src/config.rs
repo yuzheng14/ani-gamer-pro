@@ -26,6 +26,19 @@ pub enum DownloadResolution {
     P1080,
 }
 
+impl DownloadResolution {
+    pub fn get_height(&self) -> u64 {
+        match self {
+            Self::P360 => 360,
+            Self::P480 => 480,
+            Self::P540 => 540,
+            Self::P576 => 576,
+            Self::P720 => 720,
+            Self::P1080 => 1080,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub enum DownloadMode {

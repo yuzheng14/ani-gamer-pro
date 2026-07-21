@@ -29,10 +29,24 @@ pub static COOKIE_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("
 #[cfg(test)]
 pub static COOKIE_FILE_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("cookie.test.txt"));
 
+#[cfg(not(test))]
+pub static BANGUMI_DIR_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("bangumi"));
+#[cfg(test)]
+pub static BANGUMI_DIR_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("bangumi-test"));
+
+#[cfg(not(test))]
+pub static TMP_DIR_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("tmp"));
+#[cfg(test)]
+pub static TMP_DIR_PATH: LazyLock<PathBuf> = LazyLock::new(|| APP_DIR.join("tmp-test"));
+
 /// 动画疯域名 ORIGIN
 ///
 /// https://ani.gamer.com.tw
 pub const ORIGIN: &str = "https://ani.gamer.com.tw";
+/// 动画疯 api 域名 ORIGIN
+///
+/// https://api.gamer.com.tw
+pub const API_ORIGIN: &str = "https://api.gamer.com.tw";
 
 #[cfg(test)]
 mod test {
