@@ -9,6 +9,8 @@ pub enum FFmpegError {
     Io(#[from] std::io::Error),
     #[error("ffmpeg not in path")]
     FFmpegNotExist,
+    #[error("{0}")]
+    Command(String),
 }
 
 type FFmpegResult<T = ()> = Result<T, FFmpegError>;
@@ -18,6 +20,28 @@ impl FFmpeg {
         let status = Command::new("ffmpeg").arg("-h").status().await?;
 
         Ok(status.success())
+    }
+
+    pub async fn merge_m3u8(
+        pl_path: impl Into<String>,
+        output_path: impl Into<String>,
+    ) -> FFmpegResult {
+        let output = Command::new("ffmpeg")
+            .arg("-allowed_extensions ALL")
+            .arg(format!("-i {}", pl_path.into()))
+            .arg("-c copy")
+            .arg(output_path.into())
+            .arg("-y")
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            return Err(FFmpegError::Command(
+                String::from_utf8_lossy(&output.stderr).into_owned(),
+            ));
+        }
+
+        Ok(())
     }
 }
 

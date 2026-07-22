@@ -158,7 +158,7 @@ pub struct Config {
     // pub segment_download_mode: bool,
     /// 每个视频最大并发下载分段数，仅在 `segment_download_mode` 为 true 时有效，最高为 5，超过将重置为 5。
     /// 默认值为 2。
-    pub multi_downloading_segment: u32,
+    pub multi_downloading_segment: usize,
     /// 在分段下载模式时有效，每个分段最大重试次数，-1 为无限重试。默认值为 8。
     pub segment_max_retry: i32,
     // /// 是否在视频文件名中添加番剧名，格式举例: [番剧名]。
@@ -413,10 +413,10 @@ mod test {
         let cases = [(0, 0, 0, 1, 1, 1), (6, 6, 7, 5, 5, 7)];
 
         for (
-            multi_thread,
+            _multi_thread,
             multi_downloading_segment,
             quantity_of_logs,
-            expected_multi_thread,
+            _expected_multi_thread,
             expected_multi_downloading_segment,
             expected_quantity_of_logs,
         ) in cases

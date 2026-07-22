@@ -11,3 +11,4 @@ pub(crate) mod sn_list;
 pub(crate) mod util;
 
 pub use anime::{Anime, episode::Episode};
+pub use error::Error;

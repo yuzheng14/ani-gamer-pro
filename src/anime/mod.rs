@@ -1,28 +1,10 @@
-use std::{
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::sync::{Arc, Mutex};
 
 use indexmap::IndexMap;
-use m3u8_rs::parse_master_playlist;
-use nom::Finish;
-use tokio::time;
-use url::Url;
-use wreq::header::REFERER;
 
+use self::util::get_anime_video_result_from_sn;
 use crate::{
-    config::Config,
-    constant::ORIGIN,
-    device_id::DeviceId,
-    error::AnimeBuildError,
-    ffmpeg::{FFmpeg, FFmpegError},
-    request::{
-        self, RequestClient,
-        common::DirectDataResponseBody,
-        playlist::PlaylistSrc,
-        token::{Token, TokenError},
-    },
-    util::{get_referer, random_string},
+    Episode, config::Config, device_id::DeviceId, error::AnimeBuildError, request::RequestClient,
 };
 
 pub mod constant;
@@ -30,9 +12,6 @@ pub mod episode;
 pub mod episode_detail;
 pub mod error;
 pub mod util;
-
-use self::episode::*;
-use self::util::*;
 
 // TODO listen cookie jar change, save to config file
 
@@ -94,8 +73,6 @@ impl Anime {
 #[cfg(test)]
 mod test {
     use std::error::Error;
-
-    use m3u8_rs::{KeyMethod, Resolution};
 
     use crate::cookie::Cookie;
 
