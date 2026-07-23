@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
 ani-gamer-pro = { workspace = true }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }

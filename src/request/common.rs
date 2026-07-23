@@ -37,6 +37,8 @@ impl<D, E> DirectDataResponseBody<D, E> {
 mod test {
     use std::error::Error;
 
+    use crate::request::token::{Token, TokenError};
+
     use super::*;
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -126,5 +128,25 @@ mod test {
             .into_result(),
             Err("error_string".to_string())
         );
+    }
+
+    #[test]
+    fn direct_data_response_body_with_true_data() -> Result<(), Box<dyn Error>> {
+        let content =
+            r#"{"src":"","animeSn":59221,"r18":3,"vip":false,"time":0,"login":false,"promote":[]}"#;
+
+        assert_eq!(
+            DirectDataResponseBody::<Token, TokenError>::Data(Token {
+                src: String::from(""),
+                anime_sn: 59221,
+                r18: 3,
+                vip: false,
+                time: 0,
+                login: false,
+            }),
+            serde_json::from_str(content)?
+        );
+
+        Ok(())
     }
 }

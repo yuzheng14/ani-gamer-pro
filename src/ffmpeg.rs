@@ -1,3 +1,5 @@
+use std::process::Stdio;
+
 use thiserror::Error;
 use tokio::process::Command;
 
@@ -17,7 +19,12 @@ type FFmpegResult<T = ()> = Result<T, FFmpegError>;
 
 impl FFmpeg {
     pub async fn exist() -> FFmpegResult<bool> {
-        let status = Command::new("ffmpeg").arg("-h").status().await?;
+        let status = Command::new("ffmpeg")
+            .arg("-h")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .await?;
 
         Ok(status.success())
     }
@@ -26,10 +33,14 @@ impl FFmpeg {
         pl_path: impl Into<String>,
         output_path: impl Into<String>,
     ) -> FFmpegResult {
+        // TODO drop ffmpeg stdout and stderr
         let output = Command::new("ffmpeg")
-            .arg("-allowed_extensions ALL")
-            .arg(format!("-i {}", pl_path.into()))
-            .arg("-c copy")
+            .arg("-allowed_extensions")
+            .arg("ALL")
+            .arg("-i")
+            .arg(pl_path.into())
+            .arg("-c")
+            .arg("copy")
             .arg(output_path.into())
             .arg("-y")
             .output()

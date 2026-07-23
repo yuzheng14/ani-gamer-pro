@@ -3,17 +3,18 @@ use std::fmt::Display;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Token {
-    anime_sn: u32,
-    login: bool,
+    pub(crate) anime_sn: u32,
+    pub(crate) login: bool,
     // promote: [],
     /// unknown value meaning
-    r18: u32,
-    src: String,
+    pub(crate) r18: u32,
+    pub(crate) src: String,
     /// unknown value meaning
-    time: u32,
+    pub(crate) time: u32,
     /// is vip account
-    vip: bool,
+    pub(crate) vip: bool,
 }
 
 impl Token {

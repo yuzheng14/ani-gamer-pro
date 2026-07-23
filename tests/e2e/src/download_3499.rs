@@ -1,16 +1,15 @@
-use ani_gamer_pro::{Anime, Config, Cookie, DeviceId, RequestClient};
 use std::{
     error::Error,
     sync::{Arc, Mutex},
 };
-use tokio::fs;
 
-fn main() {
-    println!("Hello, world!");
-}
+use ani_gamer_pro::{Anime, Config, Cookie, DeviceId, RequestClient};
+use tokio::fs;
 
 #[tokio::test]
 async fn download_3499() -> Result<(), Box<dyn Error>> {
+    crate::common::init_test_tracing();
+
     let cookie_string = fs::read_to_string("./cookie.test.txt").await?;
 
     let device_id = DeviceId::default();

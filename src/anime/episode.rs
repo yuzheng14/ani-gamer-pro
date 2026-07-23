@@ -1,6 +1,6 @@
 use std::{
     ops::Deref,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicUsize},
     time::Duration,
 };
 
@@ -20,7 +20,6 @@ use url::Url;
 use wreq::header::REFERER;
 
 use crate::{
-    Anime,
     anime::{episode_detail::EpisodeDetail, error::AnimeDownloadError},
     config::Config,
     constant::{ORIGIN, TMP_DIR_PATH},
@@ -80,20 +79,23 @@ impl Episode {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     pub async fn download(&self) -> AnimeDownloadResult {
         if !FFmpeg::exist().await? {
             return Err(FFmpegError::FFmpegNotExist.into());
         }
 
         self.get_device_id().await?;
+        tracing::debug!("renew device_id complete");
 
         let token = self.gain_access(true).await?;
+        tracing::debug!("gain access complete");
 
         self.unlock(None).await?;
         self.check_lock().await?;
         self.unlock(None).await?;
         self.unlock(None).await?;
+        tracing::debug!("check lock complete");
 
         if !token.vip() {
             if self.config.lock().unwrap().only_use_vip {
@@ -107,15 +109,20 @@ impl Episode {
             );
 
             self.start_ad().await?;
+            tracing::debug!("start waiting ad");
             let ads_time = { self.config.lock().unwrap().ads_time as u64 };
             time::sleep(Duration::from_secs(ads_time)).await;
+            tracing::debug!("finish wating, skip ad");
             self.skip_ad().await?;
+            tracing::debug!("skip ad  complete");
         } else {
             tracing::info!("recognize vip account, start downloading");
         }
 
         self.video_start().await?;
+        tracing::debug!("start video");
         self.check_no_ad().await?;
+        tracing::debug!("check no ad complete");
 
         // FIXME it seems like that ani gamer doesn't use this api now. detailed api url is inside
         // this method
@@ -136,11 +143,17 @@ impl Episode {
             .await?;
 
         let (_, master_pl) = parse_master_playlist(&master_pl_bytes).finish()?;
+        tracing::debug!("parsed master_pl");
 
         let episode_detail = EpisodeDetail::from_sn(self.sn, self.request_client.clone()).await?;
         episode_detail.ensure_bangumi_dir().await?;
+        tracing::debug!("ensured bangumi_dir");
 
         let variant = self.get_media_variant(master_pl)?;
+        tracing::debug!(
+            resolution = variant.resolution.unwrap().height,
+            "selected media variant"
+        );
 
         let file_name = episode_detail.get_filename(
             variant
@@ -153,9 +166,17 @@ impl Episode {
 
         let tmp_dir_path = TMP_DIR_PATH.join(self.sn.to_string());
         fs::create_dir_all(&tmp_dir_path).await?;
+        tracing::debug!(
+            file_name = file_name,
+            file_path = %file_path.display(),
+            tmp_dir_path = %tmp_dir_path.display(),
+            "decided path and file name"
+        );
 
         let media_pl_src = Url::parse(src)?.join(&variant.uri)?;
+        tracing::debug!(url = %media_pl_src, "parsed media url");
         let (media_pl_bytes, media_pl) = self.get_media_playlist(&media_pl_src).await?;
+        tracing::debug!("parsed media playlist");
 
         // download all key file
         try_join_all(
@@ -186,11 +207,15 @@ impl Episode {
                 }),
         )
         .await?;
+        tracing::debug!("downloaded keys");
 
         // write m3u8 playlist to file
         fs::write(tmp_dir_path.join("manifest.m3u8"), media_pl_bytes).await?;
+        tracing::debug!("writed m3u8 manifest");
 
         let multi_downloading_segment = { self.config.lock().unwrap().multi_downloading_segment };
+        let completed = Arc::new(AtomicUsize::new(0));
+        let total = media_pl.segments.len();
         stream::iter(&media_pl.segments)
             .map(|segment| async {
                 let mut resp = self
@@ -212,8 +237,14 @@ impl Episode {
                 Ok::<(), AnimeDownloadError>(())
             })
             .buffer_unordered(multi_downloading_segment)
+            .inspect_ok(|_| {
+                let current = completed.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+
+                tracing::debug!(current = current, total = total, "downloading");
+            })
             .try_collect::<Vec<()>>()
             .await?;
+        tracing::debug!("m3u8 chunks downloaded");
 
         FFmpeg::merge_m3u8(
             tmp_dir_path
@@ -226,9 +257,14 @@ impl Episode {
             tmp_dir_path.join(&file_name).to_string_lossy().into_owned(),
         )
         .await?;
+        tracing::debug!("merged m3u8 to mp4");
 
         fs::copy(tmp_dir_path.join(&file_name), file_path).await?;
         fs::remove_file(tmp_dir_path.join(&file_name)).await?;
+        tracing::debug!("moved file");
+
+        fs::remove_dir_all(tmp_dir_path).await?;
+        tracing::debug!("removed tmp dir");
 
         Ok(())
     }
@@ -279,30 +315,30 @@ impl Episode {
                 .append_pair("hash", &random_string(12));
         };
 
-        // let token = self
-        //     .request_client
-        //     .get(url, true)
-        //     .header(REFERER, get_referer(self.sn))
-        //     .send()
-        //     .await?
-        //     .error_for_status()?
-        //     .json::<DirectDataResponseBody<Token, TokenError>>()
-        //     .await?
-        //     .into_result()?;
-        let token_text = self
+        let token = self
             .request_client
             .get(url, true)
             .header(REFERER, get_referer(self.sn))
             .send()
             .await?
             .error_for_status()?
-            .text()
-            .await?;
-        println!("{token_text}");
-
-        let token = serde_json::from_str::<DirectDataResponseBody<Token, TokenError>>(&token_text)
-            .map_err(|err| AnimeDownloadError::Plain(format!("parse json error: {err}")))?
+            .json::<DirectDataResponseBody<Token, TokenError>>()
+            .await?
             .into_result()?;
+        // let token_text = self
+        //     .request_client
+        //     .get(url, true)
+        //     .header(REFERER, get_referer(self.sn))
+        //     .send()
+        //     .await?
+        //     .error_for_status()?
+        //     .text()
+        //     .await?;
+        // println!("{token_text}");
+
+        // let token = serde_json::from_str::<DirectDataResponseBody<Token, TokenError>>(&token_text)
+        //     .map_err(|err| AnimeDownloadError::Plain(format!("parse json error: {err}")))?
+        //     .into_result()?;
 
         Ok(token)
     }
