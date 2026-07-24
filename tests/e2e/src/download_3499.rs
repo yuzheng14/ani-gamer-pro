@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ani_dock::{Anime, Config, Cookie, DeviceId, RequestClient};
+use ani_dock_core::{Anime, Config, Cookie, DeviceId, RequestClient};
 use tokio::fs;
 
 #[tokio::test]
